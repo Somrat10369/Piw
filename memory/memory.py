@@ -138,10 +138,21 @@ def save_report_to_memory(report, run_id: str | None = None) -> str:
     if run_id is None:
         run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + report.topic[:20].replace(" ","_")
 
+    # Serialize factcheck if present
+    fc_data = None
+    fc = getattr(report, "factcheck", None)
+    if fc is not None:
+        try:
+            from output.renderer import _serialize_factcheck
+            fc_data = _serialize_factcheck(fc)
+        except Exception:
+            pass
+
     report_dict = {
         "topic":         report.topic,
         "sources_used":  report.sources_used,
         "article_count": report.article_count,
+        "factcheck":     fc_data,
         "agents": {
             key: {"output": getattr(report, key).output, "error": getattr(report, key).error}
             for key in ["reality","bias","missing","incentives","trends","scenarios","personal"]

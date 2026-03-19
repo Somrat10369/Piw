@@ -25,6 +25,7 @@ console = Console(width=100)
 
 SECTION_ICONS = {
     "reality":    ("🧩", "REALITY", "cyan"),
+    "factcheck":  ("🔍", "FACT-CHECK", "bright_cyan"),
     "bias":       ("⚖️ ", "BIAS & MANIPULATION", "yellow"),
     "missing":    ("🕳️ ", "MISSING INFORMATION", "magenta"),
     "incentives": ("💰", "INCENTIVES", "red"),
@@ -55,6 +56,15 @@ def render_report(report) -> None:
     console.rule(style="dim white")
 
     for key, (icon, title, color) in SECTION_ICONS.items():
+        if key == "factcheck":
+            fc = getattr(report, "factcheck", None)
+            if fc is not None:
+                try:
+                    from agents.fact_checker import format_fact_check_report
+                    _section(icon, title, color, format_fact_check_report(fc))
+                except Exception:
+                    pass
+            continue
         agent_out = getattr(report, key, None)
         if agent_out is None:
             continue
@@ -63,6 +73,29 @@ def render_report(report) -> None:
     console.print()
     console.rule("[dim]END OF REPORT[/dim]", style="dim white")
     console.print()
+
+
+def _serialize_factcheck(fc) -> dict | None:
+    """Serialize FactCheckReport to plain dict for JSON storage."""
+    if fc is None:
+        return None
+    try:
+        return {
+            "total": fc.total, "confirmed": fc.confirmed,
+            "disputed": fc.disputed, "misleading": fc.misleading,
+            "single": fc.single, "unverifiable": fc.unverifiable,
+            "confidence": fc.confidence,
+            "claims": [
+                {
+                    "text": c.text, "source": c.source, "verdict": c.verdict,
+                    "explanation": c.explanation,
+                    "supporting": c.supporting, "contradicting": c.contradicting,
+                }
+                for c in fc.claims
+            ],
+        }
+    except Exception:
+        return None
 
 
 def save_report(report, label: str = "") -> str:
@@ -84,6 +117,7 @@ def save_report(report, label: str = "") -> str:
             for key in ["reality","bias","missing","incentives","trends","scenarios","personal"]
             if getattr(report, key) is not None
         },
+        "factcheck": _serialize_factcheck(getattr(report, "factcheck", None)),
         "raw_articles": report.raw_articles,
     }
     json_path = str(base) + ".json"
@@ -102,5 +136,17 @@ def save_report(report, label: str = "") -> str:
             ao = getattr(report, key, None)
             if ao:
                 f.write(f"\n{icon}  {title}\n{'─'*60}\n{ao.output}\n")
+
+    # Fact-check plain text
+    fc = getattr(report, "factcheck", None)
+    if fc is not None:
+        try:
+            from agents.fact_checker import format_fact_check_report
+            import re as _re
+            plain = _re.sub(r'\[/?[a-zA-Z_ ]+\]', '', format_fact_check_report(fc))
+            with open(txt_path, "a", encoding="utf-8") as f:
+                f.write(f"\n🔍  FACT-CHECK\n{'─'*60}\n{plain}\n")
+        except Exception:
+            pass
 
     return json_path

@@ -67,7 +67,14 @@ def extract_entities_from_text(text: str, run_id: str = "") -> list[dict]:
         etype = str(e.get("type", "OTHER")).upper()
         context = str(e.get("context", ""))
         if name and len(name) > 1:
-            upsert_entity(name, etype, context, run_id)
+            eid = upsert_entity(name, etype, context, run_id)
+            # Record trend snapshot for this entity
+            try:
+                from memory.trend_tracker import record_snapshot, migrate_db
+                migrate_db()
+                record_snapshot(eid, window_days=7)
+            except Exception:
+                pass
             valid.append({"name": name, "type": etype, "context": context})
 
     return valid

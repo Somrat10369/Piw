@@ -31,6 +31,7 @@ class IntelligenceReport:
     sources_used:  list[str]
     article_count: int
     reality:       AgentOutput | None = None
+    factcheck:     object | None = None   # FactCheckReport
     bias:          AgentOutput | None = None
     missing:       AgentOutput | None = None
     incentives:    AgentOutput | None = None
@@ -378,6 +379,14 @@ def run_pipeline(articles, topic: str = "unknown",
 
     # ── Run agents ────────────────────────────────────────────────────────────
     report.reality    = agent_reality(articles_text, verbose)
+
+    # ── Fact-check (runs after Reality, before Bias) ──────────────────────────
+    try:
+        from agents.fact_checker import run_fact_check
+        report.factcheck = run_fact_check(articles_text, verbose=verbose)
+    except Exception as e:
+        if verbose:
+            print(f"  [Fact-Check] skipped: {e}")
     report.bias       = agent_bias(articles_text, verbose)
     report.missing    = agent_missing(articles_text, report.reality.output, verbose)
     report.incentives = agent_incentives(articles_text, report.reality.output, verbose)

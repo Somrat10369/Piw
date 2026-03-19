@@ -25,7 +25,7 @@ INSTALL DEPS (run once):
   pip install sentence-transformers faiss-cpu   # optional: semantic clustering
 
 OLLAMA SETUP:
-  ollama pull qwen3:14b-q4_K_M        # recommended model (~9GB, fits RTX 4070)
+  ollama pull qwen2.5:14b             # recommended model (~9GB, fits RTX 4070)
   ollama serve                        # must be running before piw.py
 """
 
@@ -195,6 +195,9 @@ def interactive():
         rprint("  [cyan]6[/cyan]  View tracked entities")
         rprint("  [cyan]7[/cyan]  View pending alerts")
         rprint("  [cyan]8[/cyan]  Check Ollama status")
+        rprint("  [cyan]9[/cyan]  View entity trends (all)")
+        rprint("  [cyan]10[/cyan] View trend detail for one entity")
+        rprint("  [cyan]11[/cyan] Diff two runs (by topic)")
         rprint("  [cyan]q[/cyan]  Quit\n")
 
         choice = Prompt.ask("Choice", default="1")
@@ -221,6 +224,14 @@ def interactive():
             alerts()
         elif choice == "8":
             check()
+        elif choice == "9":
+            trends()
+        elif choice == "10":
+            n = Prompt.ask("Enter entity name")
+            trend_entity(name=n)
+        elif choice == "11":
+            t = Prompt.ask("Enter topic keyword")
+            diff(topic_filter=t)
         elif choice in ("q", "quit", "exit"):
             rprint("[dim]Exiting PIW.[/dim]")
             break
@@ -350,6 +361,110 @@ def memory_stats():
     rprint(f"  Entities known  : [cyan]{s['entities_known']}[/cyan]")
     rprint(f"  Pending alerts  : [yellow]{s['pending_alerts']}[/yellow]")
     rprint(f"  Tracking since  : [dim]{s['tracking_since'][:16] if s['tracking_since'] != 'never' else 'never'}[/dim]")
+
+
+# ── trends (all entities) ─────────────────────────────────────────────────────
+
+@cli.command()
+def trends(
+    type_filter: str  = typer.Option(None, "--type", "-t",
+                                      help="Filter: COUNTRY | ORG | PERSON | ECON | EVENT"),
+    window: int       = typer.Option(7,  "--window", "-w", help="Bucket size in days (1=daily, 7=weekly)"),
+    lookback: int     = typer.Option(12, "--lookback", "-l", help="How many windows to look back"),
+    min_mentions: int = typer.Option(2,  "--min", "-m", help="Min total mentions to include"),
+):
+    """Show trend state for all tracked entities (Rising/Surging/Declining/etc)."""
+    init_db()
+    from memory.trend_tracker import refresh_all_trends, format_trend_table, migrate_db
+    migrate_db()
+    rprint(f"\n[cyan]Computing trends (window={window}d, lookback={lookback} windows)...[/cyan]")
+    results = refresh_all_trends(window_days=window, lookback_windows=lookback)
+
+    if type_filter:
+        results = [r for r in results if r["type"] == type_filter.upper()]
+
+    rprint(format_trend_table(results, min_total=min_mentions))
+
+    # Summary counts
+    from collections import Counter
+    state_counts = Counter(r["state"] for r in results if r["total"] >= min_mentions)
+    if state_counts:
+        rprint("\n[dim]Summary:[/dim]  " + "  ".join(
+            f"{s}: {c}" for s, c in sorted(state_counts.items())
+        ))
+
+
+# ── trend-entity (single entity detail) ──────────────────────────────────────
+
+@cli.command(name="trend-entity")
+def trend_entity(
+    name:     str = typer.Argument(..., help="Entity name to analyze"),
+    window:   int = typer.Option(7,  "--window",   "-w", help="Bucket size in days"),
+    lookback: int = typer.Option(12, "--lookback", "-l", help="Number of windows to look back"),
+):
+    """Show detailed trend breakdown + sparkline for a single entity."""
+    init_db()
+    from memory.trend_tracker import (
+        format_entity_trend_detail, refresh_all_trends, migrate_db
+    )
+    migrate_db()
+    rprint(format_entity_trend_detail(name, window_days=window, lookback_windows=lookback))
+
+
+
+# ── diff ──────────────────────────────────────────────────────────────────────
+
+@cli.command()
+def diff(
+    run_id_a:    str = typer.Argument(None, help="First run ID (older). Omit to use --topic auto-pick."),
+    run_id_b:    str = typer.Argument(None, help="Second run ID (newer)."),
+    topic_filter:str = typer.Option(None, "--topic", "-t",
+                                    help="Auto-pick 2 most recent runs for this topic"),
+    list_runs:   bool= typer.Option(False, "--list", "-l",
+                                    help="List available run IDs for the topic"),
+):
+    """Compare two analysis runs — see what changed between them."""
+    init_db()
+    from output.diff import (
+        diff_by_run_ids, diff_latest_by_topic,
+        list_runs_for_topic, render_diff,
+    )
+
+    # List mode
+    if list_runs:
+        if not topic_filter:
+            rprint("[red]--list requires --topic[/red]")
+            raise typer.Exit(1)
+        list_runs_for_topic(topic_filter)
+        return
+
+    # Auto-pick by topic
+    if topic_filter and not run_id_a:
+        result = diff_latest_by_topic(topic_filter)
+        if result:
+            render_diff(result)
+        return
+
+    # Explicit run IDs
+    if run_id_a and run_id_b:
+        result = diff_by_run_ids(run_id_a, run_id_b)
+        if result:
+            render_diff(result)
+        return
+
+    # Fallback: show last 2 runs overall
+    from memory.memory import get_topic_history, get_report_by_run_id
+    runs = get_topic_history(limit=2)
+    if len(runs) < 2:
+        rprint("[yellow]Not enough runs in memory. Run 'analyze' at least twice first.[/yellow]")
+        raise typer.Exit(1)
+    ra = get_report_by_run_id(runs[-1]["run_id"])
+    rb = get_report_by_run_id(runs[0]["run_id"])
+    if ra and rb:
+        ra.setdefault("run_at", runs[-1]["run_at"])
+        rb.setdefault("run_at", runs[0]["run_at"])
+        from output.diff import diff_reports
+        render_diff(diff_reports(ra, rb))
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
