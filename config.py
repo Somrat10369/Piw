@@ -6,7 +6,7 @@ Central configuration. Edit OLLAMA_MODEL and RSS_FEEDS to suit your setup.
 
 # ── Ollama ──────────────────────────────────────────────────────────────────
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL    = "qwen2.5:14b"   # change to mistral:7b if VRAM is tight
+OLLAMA_MODEL    = "qwen3:14b-q4_K_M"   # change to mistral:7b if VRAM is tight
 OLLAMA_TIMEOUT  = 120             # seconds per agent call
 
 # ── Collector ───────────────────────────────────────────────────────────────

@@ -12,12 +12,12 @@ Download from https://ollama.com/download and install.
 
 Then pull the recommended model:
 ```powershell
-ollama pull qwen2.5:14b       # ~9GB download, fits in RTX 4070 12GB VRAM
+ollama pull qwen3:14b-q4_K_M       # ~9GB download, fits in RTX 4070 12GB VRAM
 # OR if VRAM is tight:
 ollama pull mistral:7b
 ```
 
-Edit `config.py` → set `OLLAMA_MODEL = "qwen2.5:14b"` (or whichever you pulled).
+Edit `config.py` → set `OLLAMA_MODEL = "qwen3:14b-q4_K_M"` (or whichever you pulled).
 
 ### 2. Install Python dependencies
 ```powershell
@@ -85,7 +85,7 @@ Each article cluster passes through 7 sequential agents:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `OLLAMA_MODEL` | `qwen2.5:14b` | Model to use for all agents |
+| `OLLAMA_MODEL` | `qwen3:14b-q4_K_M` | Model to use for all agents |
 | `OLLAMA_TIMEOUT` | `120` | Seconds per agent call |
 | `MAX_ARTICLES_PER_FEED` | `5` | Articles fetched per RSS source |
 | `MAX_ARTICLE_CHARS` | `6000` | Max chars per article before truncation |
@@ -129,7 +129,7 @@ Bangladesh sources pre-configured: Daily Star, Prothom Alo EN, bdnews24.
 ## Troubleshooting
 
 **`Cannot connect to Ollama`** → Run `ollama serve` in a separate terminal.  
-**`model not found`** → Run `ollama pull qwen2.5:14b`.  
+**`model not found`** → Run `ollama pull qwen3:14b-q4_K_M`.  
 **Slow responses** → Try `mistral:7b` for faster but shallower analysis.  
 **Empty article bodies** → Some sites block scrapers; summary fallback is used.  
 **VRAM OOM** → Switch to `mistral:7b` or `qwen2.5:7b` in config.py.
