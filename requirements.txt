@@ -1,0 +1,15 @@
+# PIW — requirements.txt
+# Core (required)
+feedparser>=6.0
+beautifulsoup4>=4.12
+requests>=2.31
+rich>=13.0
+typer>=0.9
+httpx>=0.25
+
+# Phase 2 — semantic clustering (install when needed)
+# sentence-transformers>=2.7
+# faiss-cpu>=1.8        # CPU build — works without GPU
+# numpy>=1.26
+
+textual>=0.80       # TUI dashboard (pip install textual)

@@ -198,6 +198,7 @@ def interactive():
         rprint("  [cyan]9[/cyan]  View entity trends (all)")
         rprint("  [cyan]10[/cyan] View trend detail for one entity")
         rprint("  [cyan]11[/cyan] Diff two runs (by topic)")
+        rprint("  [cyan]12[/cyan] Open TUI dashboard")
         rprint("  [cyan]q[/cyan]  Quit\n")
 
         choice = Prompt.ask("Choice", default="1")
@@ -232,6 +233,8 @@ def interactive():
         elif choice == "11":
             t = Prompt.ask("Enter topic keyword")
             diff(topic_filter=t)
+        elif choice == "12":
+            dashboard()
         elif choice in ("q", "quit", "exit"):
             rprint("[dim]Exiting PIW.[/dim]")
             break
@@ -465,6 +468,22 @@ def diff(
         rb.setdefault("run_at", runs[0]["run_at"])
         from output.diff import diff_reports
         render_diff(diff_reports(ra, rb))
+
+
+
+# ── dashboard (TUI) ───────────────────────────────────────────────────────────
+
+@cli.command()
+def dashboard():
+    """Launch live TUI dashboard (requires: pip install textual)."""
+    init_db()
+    try:
+        from tui import run_dashboard
+        run_dashboard()
+    except ImportError:
+        rprint("[red]Textual not installed.[/red]")
+        rprint("Run:  [cyan]pip install textual[/cyan]")
+        raise typer.Exit(1)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
